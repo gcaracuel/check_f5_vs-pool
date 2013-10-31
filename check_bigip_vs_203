@@ -29,7 +29,7 @@ use vars qw($PROGNAME $VERSION $snmpcmd %bip);
 use Nagios::Plugin;
 
 $PROGNAME = 'check_bigip_vs';
-$VERSION = '2.02';
+$VERSION = '2.03';
 $snmpcmd = '/usr/bin/snmpget';
 
 # BigIP config. For each bigip version, there is the base OID and possible
@@ -61,6 +61,15 @@ $snmpcmd = '/usr/bin/snmpget';
     '5' => ['CRITICAL', 'Unlicensed']
   },
   '10' => {
+    'OID' => '.1.3.6.1.4.1.3375.2.2.10.13.2.1.2.',
+    '0' => ['CRITICAL', 'Error'],
+    '1' => ['OK', 'Virtual Server is Up and available'],
+    '2' => ['CRITICAL', 'Virtual Server is currently not available'],
+    '3' => ['CRITICAL', 'Virtual Server is not available'],
+    '4' => ['WARNING', 'Virtual Server status is unknown'],
+    '5' => ['CRITICAL', 'Unlicensed']
+  },
+  '11' => {
     'OID' => '.1.3.6.1.4.1.3375.2.2.10.13.2.1.2.',
     '0' => ['CRITICAL', 'Error'],
     '1' => ['OK', 'Virtual Server is Up and available'],
@@ -131,7 +140,7 @@ my $virtualServerPort = $np->opts->port;
 $np->nagios_exit('UNKNOWN', 'Hostname contains invalid characters.')
   if ($hostname =~ /\`|\~|\!|\$|\%|\^|\&|\*|\||\'|\"|\<|\>|\?|\,|\(|\)|\=/);
 $np->nagios_exit('UNKNOWN', "Unknown SW version $software.")
-  if ($software ne '4.5' && $software ne '9' && $software ne '10');
+  if ($software ne '4.5' && $software ne '9' && $software ne '10' && $software ne '11');
 
 if ($software eq '4.5') {
   $np->nagios_exit('UNKNOWN', 'VS IP Address must be an IP address.')
@@ -158,7 +167,7 @@ if ($software eq '4.5') {
   $oid .= "$virtualServer.$virtualServerPort";
 }
 
-if ($software eq '9' || $software eq '10') {
+if ($software eq '9' || $software eq '10' || $software eq '11') {
 
   # First get the exact version
   my $vercmd = "$snmpcmd -v2c -c $community -m '' -On -Oe $hostname .1.3.6.1.4.1.3375.2.1.4.2.0";
@@ -181,6 +190,8 @@ if ($software eq '9' || $software eq '10') {
     $software = '9.3';
   } elsif ($1 eq '10') {
      $software = '10';
+     } elsif ($1 eq '11') {
+     $software = '11';
   } elsif ($1 ne '9') {
     $np->nagios_exit('CRITICAL', 'Unknown BigIP LTM version $version');
   }
@@ -221,5 +232,5 @@ $np->nagios_exit(@{$bip{$software}{$status}})
   if (defined($bip{$software}{$status}));
 
 # We should NEVER end up here...
-$np->nagios_exit('UNKNOWN', "Virtual Server status $status undefined");
+$np->nagios_exit('UNKNOWN', "Virtual Server status $status undefined: $result");
 
